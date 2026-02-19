@@ -31,6 +31,7 @@ export function LoginForm({
     setIsLoading(true)
     try {
       const res = await login({ email, password })
+      localStorage.setItem("accessToken", res.token)
       toast.success(res.message || "Login successful!")
       router.push("/")
     } catch (err: any) {

@@ -7,9 +7,22 @@ const http = axios.create({
     },
 })
 
-//từ từ setup
+// Separate instance for auth endpoints (no /v1 prefix)
+export const authHttp = axios.create({
+    baseURL: process.env.NEXT_PUBLIC_AUTH_API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+})
+
 http.interceptors.request.use(
     (config) => {
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('accessToken')
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`
+            }
+        }
         return config
     },
     (error) => {

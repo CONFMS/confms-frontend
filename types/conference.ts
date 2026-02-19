@@ -1,0 +1,57 @@
+export interface CreateConferenceRequest {
+    name: string
+    acronym: string
+    description: string
+    location: string
+    startDate: string
+    endDate: string
+    status: string
+    websiteUrl: string
+}
+
+export interface ConferenceResponse {
+    id: number
+    name: string
+    acronym: string
+    description: string
+    location: string
+    startDate: string
+    endDate: string
+    status: string
+    websiteUrl: string
+}
+
+export interface CreateTrackRequest {
+    name: string
+    description: string
+    conferenceId: number
+    submissionStart: string
+    submissionEnd: string
+    registrationStart: string
+    registrationEnd: string
+    cameraReadyStart: string
+    cameraReadyEnd: string
+    biddingStart: string
+    biddingEnd: string
+    reviewStart: string
+    reviewEnd: string
+    maxSubmissions: number
+}
+
+export interface TrackResponse {
+    id: number
+    name: string
+    description: string
+    conferenceId: number
+    submissionStart: string
+    submissionEnd: string
+    registrationStart: string
+    registrationEnd: string
+    cameraReadyStart: string
+    cameraReadyEnd: string
+    biddingStart: string
+    biddingEnd: string
+    reviewStart: string
+    reviewEnd: string
+    maxSubmissions: number
+}
