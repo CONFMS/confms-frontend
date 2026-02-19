@@ -1,0 +1,295 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { getUsers, assignRole } from "@/app/api/user.api"
+import type { User } from "@/types/user"
+import toast from "react-hot-toast"
+import { Button } from "@/components/ui/button"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldGroup,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from "@/components/ui/field"
+import { Plus, Shield, Trash2, UserIcon } from "lucide-react"
+
+interface AssignRoleProps {
+    conferenceId: number
+    trackId: number
+    onSuccess: () => void
+}
+
+interface RoleAssignment {
+    id: number
+    userId: string
+    role: string
+}
+
+const ROLES = [
+    { value: "ORGANIZER", label: "Organizer" },
+    { value: "TRACK_CHAIR", label: "Track Chair" },
+    { value: "REVIEWER", label: "Reviewer" },
+    { value: "AUTHOR", label: "Author" },
+]
+
+let nextId = 1
+
+export function AssignRole({ conferenceId, trackId, onSuccess }: AssignRoleProps) {
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true)
+    const [users, setUsers] = useState<User[]>([])
+    const [errors, setErrors] = useState<Record<string, string>>({})
+
+    const [assignments, setAssignments] = useState<RoleAssignment[]>([
+        { id: nextId++, userId: "", role: "" },
+    ])
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const data = await getUsers()
+                setUsers(data)
+            } catch (error) {
+                console.error("Failed to load users:", error)
+                toast.error("Failed to load users.")
+            } finally {
+                setIsLoadingUsers(false)
+            }
+        }
+        fetchUsers()
+    }, [])
+
+    const addAssignment = () => {
+        setAssignments((prev) => [...prev, { id: nextId++, userId: "", role: "" }])
+    }
+
+    const removeAssignment = (id: number) => {
+        if (assignments.length <= 1) return
+        setAssignments((prev) => prev.filter((a) => a.id !== id))
+        // Clear related errors
+        setErrors((prev) => {
+            const next = { ...prev }
+            delete next[`userId_${id}`]
+            delete next[`role_${id}`]
+            return next
+        })
+    }
+
+    const updateAssignment = (
+        id: number,
+        field: "userId" | "role",
+        value: string
+    ) => {
+        setAssignments((prev) =>
+            prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+        )
+        const errorKey = `${field}_${id}`
+        if (errors[errorKey]) {
+            setErrors((prev) => {
+                const next = { ...prev }
+                delete next[errorKey]
+                return next
+            })
+        }
+    }
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {}
+        assignments.forEach((a) => {
+            if (!a.userId) newErrors[`userId_${a.id}`] = "Please select a user."
+            if (!a.role) newErrors[`role_${a.id}`] = "Please select a role."
+        })
+        setErrors(newErrors)
+        return Object.keys(newErrors).length === 0
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!validate()) return
+
+        setIsSubmitting(true)
+        try {
+            const promises = assignments.map((a) =>
+                assignRole({
+                    userId: Number(a.userId),
+                    conferenceId,
+                    trackId,
+                    assignedRole: a.role,
+                })
+            )
+            await Promise.all(promises)
+            toast.success(
+                assignments.length === 1
+                    ? "Role assigned successfully!"
+                    : `${assignments.length} roles assigned successfully!`
+            )
+            onSuccess()
+        } catch (error) {
+            console.error("Failed to assign roles:", error)
+            toast.error("Failed to assign roles. Please try again.")
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <FieldSet>
+                <FieldLegend>Assign Roles</FieldLegend>
+                <FieldDescription>
+                    Select users and assign them roles for this conference track.
+                </FieldDescription>
+
+                <div className="mt-6 space-y-6">
+                    {assignments.map((assignment, index) => (
+                        <div
+                            key={assignment.id}
+                            className="rounded-lg border p-4"
+                        >
+                            <div className="mb-4 flex items-center justify-between">
+                                <span className="text-sm font-medium">
+                                    Assignment {index + 1}
+                                </span>
+                                {assignments.length > 1 && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                            removeAssignment(assignment.id)
+                                        }
+                                        className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                )}
+                            </div>
+
+                            <FieldGroup>
+                                {/* User */}
+                                <Field
+                                    data-invalid={
+                                        !!errors[`userId_${assignment.id}`] ||
+                                        undefined
+                                    }
+                                >
+                                    <FieldLabel>
+                                        <UserIcon className="size-4" />
+                                        User
+                                    </FieldLabel>
+                                    <Select
+                                        value={assignment.userId}
+                                        onValueChange={(value) =>
+                                            updateAssignment(
+                                                assignment.id,
+                                                "userId",
+                                                value
+                                            )
+                                        }
+                                        disabled={isLoadingUsers}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue
+                                                placeholder={
+                                                    isLoadingUsers
+                                                        ? "Loading users..."
+                                                        : "Select a user"
+                                                }
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {users.map((user) => (
+                                                <SelectItem
+                                                    key={user.id}
+                                                    value={String(user.id)}
+                                                >
+                                                    {user.fullName} ({user.email})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors[`userId_${assignment.id}`] && (
+                                        <FieldError>
+                                            {errors[`userId_${assignment.id}`]}
+                                        </FieldError>
+                                    )}
+                                </Field>
+
+                                {/* Role */}
+                                <Field
+                                    data-invalid={
+                                        !!errors[`role_${assignment.id}`] ||
+                                        undefined
+                                    }
+                                >
+                                    <FieldLabel>
+                                        <Shield className="size-4" />
+                                        Role
+                                    </FieldLabel>
+                                    <Select
+                                        value={assignment.role}
+                                        onValueChange={(value) =>
+                                            updateAssignment(
+                                                assignment.id,
+                                                "role",
+                                                value
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select a role" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {ROLES.map((role) => (
+                                                <SelectItem
+                                                    key={role.value}
+                                                    value={role.value}
+                                                >
+                                                    {role.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors[`role_${assignment.id}`] && (
+                                        <FieldError>
+                                            {errors[`role_${assignment.id}`]}
+                                        </FieldError>
+                                    )}
+                                </Field>
+                            </FieldGroup>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Add another button */}
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-4 w-full"
+                    onClick={addAssignment}
+                >
+                    <Plus className="mr-2 size-4" />
+                    Add Another Assignment
+                </Button>
+            </FieldSet>
+
+            <div className="mt-8 flex items-center justify-end gap-4">
+                <Button type="submit" disabled={isSubmitting || isLoadingUsers}>
+                    {isSubmitting
+                        ? "Assigning..."
+                        : `Next: Templates →`}
+                </Button>
+            </div>
+        </form>
+    )
+}

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { createTrack } from "@/app/api/conference.api"
 import toast from "react-hot-toast"
 import { Input } from "@/components/ui/input"
@@ -20,10 +19,10 @@ import { CalendarIcon, FileText, Hash, Type } from "lucide-react"
 
 interface AddTrackProps {
     conferenceId: number
+    onSuccess: (trackId: number) => void
 }
 
-export function AddTrack({ conferenceId }: AddTrackProps) {
-    const router = useRouter()
+export function AddTrack({ conferenceId, onSuccess }: AddTrackProps) {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -98,9 +97,9 @@ export function AddTrack({ conferenceId }: AddTrackProps) {
                 reviewEnd: new Date(formData.reviewEnd).toISOString(),
                 maxSubmissions: Number(formData.maxSubmissions),
             }
-            await createTrack(payload)
+            const result = await createTrack(payload)
             toast.success("Track added successfully!")
-            router.push("/dashboard")
+            onSuccess(result.id)
         } catch (error) {
             console.error("Failed to create track:", error)
             toast.error("Failed to add track. Please try again.")
@@ -405,15 +404,8 @@ export function AddTrack({ conferenceId }: AddTrackProps) {
             </FieldSet>
 
             <div className="mt-8 flex items-center justify-end gap-4">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/dashboard")}
-                >
-                    Skip for now
-                </Button>
                 <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Adding..." : "Add Track"}
+                    {isSubmitting ? "Adding..." : "Next: Assign Roles →"}
                 </Button>
             </div>
         </form>
