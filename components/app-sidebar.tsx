@@ -137,12 +137,12 @@ const data = {
   projects: [
     {
       name: "Create Conference",
-      url: "/create-conference",
+      url: "/conference/create",
       icon: CirclePlus,
     },
     {
       name: "Conferences",
-      url: "#",
+      url: "/conference",
       icon: PieChart,
     },
     {

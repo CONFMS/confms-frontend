@@ -5,17 +5,19 @@ import { ConferenceForm } from "./conference-form"
 import { AddTrack } from "./add-track"
 import { AssignRole } from "./assign-role"
 import { ConferenceTemplate } from "./conference-template"
+import { ReviewType } from "./review-type"
 
-type Step = "conference" | "track" | "assign-role" | "template"
+type Step = "conference" | "track" | "assign-role" | "template" | "review-type"
 
 const STEP_LABELS: Record<Step, string> = {
     conference: "Conference",
     track: "Tracks",
     "assign-role": "Roles",
     template: "Templates",
+    "review-type": "Review",
 }
 
-const STEPS: Step[] = ["conference", "track", "assign-role", "template"]
+const STEPS: Step[] = ["conference", "track", "assign-role", "template", "review-type"]
 
 export default function CreateConferencePage() {
     const [step, setStep] = useState<Step>("conference")
@@ -34,6 +36,10 @@ export default function CreateConferencePage() {
 
     const handleAssignRoleSuccess = () => {
         setStep("template")
+    }
+
+    const handleTemplateSuccess = () => {
+        setStep("review-type")
     }
 
     const currentStepIndex = STEPS.indexOf(step)
@@ -81,6 +87,16 @@ export default function CreateConferencePage() {
                         </p>
                     </>
                 )}
+                {step === "review-type" && (
+                    <>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Review Type
+                        </h1>
+                        <p className="text-muted-foreground mt-2">
+                            Step 5: Configure the review type for your conference.
+                        </p>
+                    </>
+                )}
 
                 {/* Step indicator */}
                 <div className="mt-4 flex items-center gap-2">
@@ -119,7 +135,14 @@ export default function CreateConferencePage() {
             )}
 
             {step === "template" && conferenceId && (
-                <ConferenceTemplate conferenceId={conferenceId} />
+                <ConferenceTemplate
+                    conferenceId={conferenceId}
+                    onSuccess={handleTemplateSuccess}
+                />
+            )}
+
+            {step === "review-type" && conferenceId && (
+                <ReviewType conferenceId={conferenceId} />
             )}
         </div>
     )

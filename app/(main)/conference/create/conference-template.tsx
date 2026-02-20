@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { createTemplate } from "@/app/api/template.api"
 import toast from "react-hot-toast"
 import { Input } from "@/components/ui/input"
@@ -21,6 +20,7 @@ import { FileText, Mail, Plus, Trash2, Type } from "lucide-react"
 
 interface ConferenceTemplateProps {
     conferenceId: number
+    onSuccess: () => void
 }
 
 interface TemplateEntry {
@@ -33,8 +33,7 @@ interface TemplateEntry {
 
 let nextId = 1
 
-export function ConferenceTemplate({ conferenceId }: ConferenceTemplateProps) {
-    const router = useRouter()
+export function ConferenceTemplate({ conferenceId, onSuccess }: ConferenceTemplateProps) {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -114,7 +113,7 @@ export function ConferenceTemplate({ conferenceId }: ConferenceTemplateProps) {
                     ? "Template created successfully!"
                     : `${templates.length} templates created successfully!`
             )
-            router.push("/dashboard")
+            onSuccess()
         } catch (error) {
             console.error("Failed to create templates:", error)
             toast.error("Failed to create templates. Please try again.")
@@ -304,17 +303,10 @@ export function ConferenceTemplate({ conferenceId }: ConferenceTemplateProps) {
             </FieldSet>
 
             <div className="mt-8 flex items-center justify-end gap-4">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/dashboard")}
-                >
-                    Skip for now
-                </Button>
                 <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting
                         ? "Saving..."
-                        : `Save ${templates.length} Template${templates.length > 1 ? "s" : ""}`}
+                        : `Next: Review Type →`}
                 </Button>
             </div>
         </form>
