@@ -21,6 +21,17 @@ export interface ConferenceResponse {
     websiteUrl: string
 }
 
+export interface ConferenceListResponse {
+    id: number
+    name: string
+    acronym: string
+    description: string
+    location: string
+    startDate: string
+    endDate: string
+    status: string
+}
+
 export interface CreateTrackRequest {
     name: string
     description: string

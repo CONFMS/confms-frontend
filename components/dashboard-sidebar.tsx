@@ -55,11 +55,11 @@ const data = {
             items: [
                 {
                     title: "All Conferences",
-                    url: "#",
+                    url: "/conference",
                 },
                 {
                     title: "Create New",
-                    url: "/create-conference",
+                    url: "/conference/create",
                 },
                 {
                     title: "Archived",
