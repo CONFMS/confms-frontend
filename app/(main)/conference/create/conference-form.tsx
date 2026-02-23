@@ -7,13 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
-import {
     Field,
     FieldDescription,
     FieldError,
@@ -39,7 +32,7 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
         location: "",
         startDate: "",
         endDate: "",
-        status: "",
+
         websiteUrl: "",
     })
 
@@ -57,16 +50,7 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
         }
     }
 
-    const handleStatusChange = (value: string) => {
-        setFormData((prev) => ({ ...prev, status: value }))
-        if (errors.status) {
-            setErrors((prev) => {
-                const next = { ...prev }
-                delete next.status
-                return next
-            })
-        }
-    }
+
 
     const validate = () => {
         const newErrors: Record<string, string> = {}
@@ -84,7 +68,7 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
         ) {
             newErrors.endDate = "End date must be after start date."
         }
-        if (!formData.status) newErrors.status = "Status is required."
+
         if (
             formData.websiteUrl &&
             !/^https?:\/\/.+\..+/.test(formData.websiteUrl)
@@ -214,9 +198,9 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
             <div className="my-8 border-t" />
 
             <FieldSet>
-                <FieldLegend>Schedule &amp; Status</FieldLegend>
+                <FieldLegend>Schedule</FieldLegend>
                 <FieldDescription>
-                    Set the conference dates and current status.
+                    Set the conference dates.
                 </FieldDescription>
 
                 <FieldGroup>
@@ -258,30 +242,7 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
                         </Field>
                     </div>
 
-                    {/* Status */}
-                    <Field data-invalid={!!errors.status || undefined}>
-                        <FieldLabel htmlFor="status">Status</FieldLabel>
-                        <Select
-                            value={formData.status}
-                            onValueChange={handleStatusChange}
-                        >
-                            <SelectTrigger className="w-full" id="status">
-                                <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-                                <SelectItem value="ONGOING">Ongoing</SelectItem>
-                                <SelectItem value="COMPLETED">Completed</SelectItem>
-                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FieldDescription>
-                            The current status of the conference.
-                        </FieldDescription>
-                        {errors.status && (
-                            <FieldError>{errors.status}</FieldError>
-                        )}
-                    </Field>
+
 
                     {/* Website URL */}
                     <Field data-invalid={!!errors.websiteUrl || undefined}>

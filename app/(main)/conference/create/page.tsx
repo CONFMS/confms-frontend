@@ -3,26 +3,29 @@
 import { useState } from "react"
 import { ConferenceForm } from "./conference-form"
 import { AddTrack } from "./add-track"
+import { AddTopic } from "./add-topic"
 import { AssignRole } from "./assign-role"
 import { ConferenceTemplate } from "./conference-template"
 import { ReviewType } from "./review-type"
 
-type Step = "conference" | "track" | "assign-role" | "template" | "review-type"
+type Step = "conference" | "track" | "topic" | "assign-role" | "template" | "review-type"
 
 const STEP_LABELS: Record<Step, string> = {
     conference: "Conference",
     track: "Tracks",
+    topic: "Topics",
     "assign-role": "Roles",
     template: "Templates",
     "review-type": "Review",
 }
 
-const STEPS: Step[] = ["conference", "track", "assign-role", "template", "review-type"]
+const STEPS: Step[] = ["conference", "track", "topic", "assign-role", "template", "review-type"]
 
 export default function CreateConferencePage() {
     const [step, setStep] = useState<Step>("conference")
     const [conferenceId, setConferenceId] = useState<number | null>(null)
     const [trackId, setTrackId] = useState<number | null>(null)
+    const [trackIds, setTrackIds] = useState<number[]>([])
 
     const handleConferenceSuccess = (id: number) => {
         setConferenceId(id)
@@ -31,7 +34,17 @@ export default function CreateConferencePage() {
 
     const handleTrackSuccess = (id: number) => {
         setTrackId(id)
+        setTrackIds((prev) => [...prev, id])
+        setStep("topic")
+    }
+
+    const handleTopicSuccess = () => {
         setStep("assign-role")
+    }
+
+    const handleAddAnotherTrack = () => {
+        setTrackId(null)
+        setStep("track")
     }
 
     const handleAssignRoleSuccess = () => {
@@ -63,7 +76,22 @@ export default function CreateConferencePage() {
                             Add Track
                         </h1>
                         <p className="text-muted-foreground mt-2">
-                            Step 2: Add a track to your newly created conference.
+                            Step 2: Add a track to your conference.
+                            {trackIds.length > 0 && (
+                                <span className="ml-1 font-medium">
+                                    ({trackIds.length} track{trackIds.length > 1 ? "s" : ""} added so far)
+                                </span>
+                            )}
+                        </p>
+                    </>
+                )}
+                {step === "topic" && (
+                    <>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Add Topics
+                        </h1>
+                        <p className="text-muted-foreground mt-2">
+                            Step 3: Add topics for the current track.
                         </p>
                     </>
                 )}
@@ -73,7 +101,7 @@ export default function CreateConferencePage() {
                             Assign Roles
                         </h1>
                         <p className="text-muted-foreground mt-2">
-                            Step 3: Assign roles to users for this conference track.
+                            Step 4: Assign roles to users for this conference track.
                         </p>
                     </>
                 )}
@@ -83,7 +111,7 @@ export default function CreateConferencePage() {
                             Configure Templates
                         </h1>
                         <p className="text-muted-foreground mt-2">
-                            Step 4: Set up email templates for your conference.
+                            Step 5: Set up email templates for your conference.
                         </p>
                     </>
                 )}
@@ -93,7 +121,7 @@ export default function CreateConferencePage() {
                             Review Type
                         </h1>
                         <p className="text-muted-foreground mt-2">
-                            Step 5: Configure the review type for your conference.
+                            Step 6: Configure the review type for your conference.
                         </p>
                     </>
                 )}
@@ -126,10 +154,18 @@ export default function CreateConferencePage() {
                 />
             )}
 
-            {step === "assign-role" && conferenceId && trackId && (
+            {step === "topic" && trackId && (
+                <AddTopic
+                    trackId={trackId}
+                    onSuccess={handleTopicSuccess}
+                    onAddAnotherTrack={handleAddAnotherTrack}
+                />
+            )}
+
+            {step === "assign-role" && conferenceId && trackIds.length > 0 && (
                 <AssignRole
                     conferenceId={conferenceId}
-                    trackId={trackId}
+                    trackId={trackIds[trackIds.length - 1]}
                     onSuccess={handleAssignRoleSuccess}
                 />
             )}
