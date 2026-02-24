@@ -13,7 +13,7 @@ export const getPapersByAuthor = async (userId: number): Promise<PaperResponse[]
 }
 
 export const assignAuthorToPaper = async (paperId: number, authorId: number): Promise<void> => {
-    const response = await http.post<void>(`/paper-author`, { paperId, authorId })
+    const response = await http.post<void>(`/paper-author`, { paperId, userId: authorId })
     return response.data
 }
 

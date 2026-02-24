@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getPapersByAuthor, assignAuthorToPaper, getAuthorsByPaper } from '@/app/api/paper.api'
-import { getUsers } from '@/app/api/user.api'
+import { getUsers, getUserByEmail } from '@/app/api/user.api'
 import type { PaperResponse } from '@/types/paper'
 import type { User } from '@/types/user'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -43,18 +43,58 @@ export default function UserSubmissionsPage() {
     const fetchPapers = async () => {
         try {
             setLoading(true)
-            const data = await getPapersByAuthor(Number(localStorage.getItem('userId')))
+            
+            // Get email from token
+            const token = localStorage.getItem('accessToken')
+            if (!token) {
+                setError('You must be logged in to view your submissions.')
+                setTimeout(() => router.push('/auth/login'), 2000)
+                return
+            }
+            
+            const payload = JSON.parse(atob(token.split('.')[1]))
+            const userEmail = payload.sub
+            
+            console.log('User email from token:', userEmail)
+            
+            if (!userEmail) {
+                setError('Invalid token. Please log in again.')
+                setTimeout(() => router.push('/auth/login'), 2000)
+                return
+            }
+            
+            // Get user info by email to get the user ID
+            console.log('Fetching user by email:', userEmail)
+            const user = await getUserByEmail(userEmail)
+            console.log('User found:', user)
+            
+            if (!user || !user.id) {
+                setError('User not found. Unable to load papers.')
+                setLoading(false)
+                return
+            }
+            
+            console.log('User object:', user)
+            const userId = user.id
+            console.log('Extracted user ID:', userId, 'Type:', typeof userId)
+            
+            console.log('About to fetch papers for user ID:', userId)
+            const data = await getPapersByAuthor(userId)
+            console.log('Papers loaded:', data)
             setPapers(data)
         } catch (err: any) {
+            console.error('Error fetching papers:', err)
+            console.error('Error response:', err.response)
+            console.error('Error message:', err.message)
+            
             if (err.response?.status === 401 || err.response?.status === 403) {
-                setError('You must be logged in to view your submissions.')
+                setError('Session expired. Please log in again.')
                 setTimeout(() => {
                     router.push('/auth/login')
                 }, 2000)
             } else {
-                setError('Failed to load submissions. Please try again later.')
+                setError(`Failed to load submissions: ${err.message || 'Unknown error'}`)
             }
-            console.error('Error fetching papers:', err)
         } finally {
             setLoading(false)
         }
@@ -138,82 +178,80 @@ export default function UserSubmissionsPage() {
     }
 
     return (
-        <div className="container mx-auto py-8 px-4">
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold">My Paper Submissions</h1>
-                <p className="text-muted-foreground mt-2">
+        <div className="container mx-auto py-6 px-4 max-w-5xl">
+            <div className="mb-4">
+                <h1 className="text-2xl font-bold">My Paper Submissions</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                     Manage your paper submissions and co-authors
                 </p>
             </div>
 
             {papers.length === 0 ? (
                 <Card>
-                    <CardContent className="py-12 text-center">
-                        <p className="text-muted-foreground">You haven&apos;t submitted any papers yet.</p>
+                    <CardContent className="py-8 text-center">
+                        <p className="text-sm text-muted-foreground">You haven&apos;t submitted any papers yet.</p>
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid gap-6">
+                <div className="grid gap-4">
                     {papers.map((paper) => (
-                        <Card key={paper.id}>
-                            <CardHeader>
-                                <div className="flex justify-between items-start">
-                                    <div className="flex-1">
-                                        <CardTitle className="text-xl">{paper.title}</CardTitle>
-                                        <CardDescription className="mt-2">
-                                            <div className="space-y-1">
+                        <Card key={paper.id} className="shadow-sm gap-2">
+                            <CardHeader className="pb-3">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <CardTitle className="text-lg leading-tight">{paper.title}</CardTitle>
+                                        <CardDescription className="mt-1.5 text-xs">
+                                            <div className="space-y-0.5">
                                                 <p><strong>Conference:</strong> {paper.track.conference.name} ({paper.track.conference.acronym})</p>
                                                 <p><strong>Track:</strong> {paper.track.name}</p>
-                                                <p><strong>Topic:</strong> {paper.topic.title}</p>
                                             </div>
                                         </CardDescription>
                                     </div>
-                                    <Badge variant={paper.status === 'SUBMITTED' ? 'default' : 'secondary'}>
+                                    <Badge variant={paper.status === 'SUBMITTED' ? 'default' : 'secondary'} className="text-xs shrink-0">
                                         {paper.status}
                                     </Badge>
                                 </div>
                             </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    <div>
-                                        <h4 className="font-semibold mb-2">Abstract</h4>
-                                        <p className="text-sm text-muted-foreground">{paper.abstractField}</p>
-                                    </div>
+                            <CardContent className="pt-0 space-y-3">
+                                <div>
+                                    <h4 className="text-sm font-semibold mb-1">Abstract</h4>
+                                    <p className="text-xs text-muted-foreground line-clamp-2">{paper.abstractField}</p>
+                                </div>
 
-                                    <div>
-                                        <h4 className="font-semibold mb-2">Keywords</h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            <Badge variant="outline">{paper.keyword1}</Badge>
-                                            <Badge variant="outline">{paper.keyword2}</Badge>
-                                            <Badge variant="outline">{paper.keyword3}</Badge>
-                                            <Badge variant="outline">{paper.keyword4}</Badge>
-                                        </div>
+                                <div>
+                                    <h4 className="text-sm font-semibold mb-1">Keywords</h4>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        <Badge variant="outline" className="text-xs">{paper.keyword1}</Badge>
+                                        <Badge variant="outline" className="text-xs">{paper.keyword2}</Badge>
+                                        <Badge variant="outline" className="text-xs">{paper.keyword3}</Badge>
+                                        <Badge variant="outline" className="text-xs">{paper.keyword4}</Badge>
                                     </div>
+                                </div>
 
-                                    <div className="pt-2">
-                                        <p className="text-sm text-muted-foreground">
-                                            <strong>Submitted:</strong> {formatDate(paper.submissionTime)}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            <strong>Plagiarism Check:</strong> {paper.isPassedPlagiarism ? 'Passed' : 'Pending'}
-                                        </p>
-                                    </div>
+                                <div className="flex gap-4 text-xs text-muted-foreground pt-2 border-t">
+                                    <span>
+                                        <strong>Submitted:</strong> {formatDate(paper.submissionTime)}
+                                    </span>
+                                    <span>
+                                        <strong>Plagiarism:</strong> {paper.isPassedPlagiarism ? 'Passed' : 'Pending'}
+                                    </span>
+                                </div>
 
-                                    <div className="flex gap-2 pt-4 border-t">
-                                        <Dialog open={openDialog && selectedPaper === paper.id} onOpenChange={(open) => {
-                                            setOpenDialog(open)
-                                            if (open) setSelectedPaper(paper.id)
-                                            else {
-                                                setSelectedPaper(null)
-                                                setSelectedUser('')
-                                            }
-                                        }}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" size="sm">
-                                                    <UserPlus className="h-4 w-4 mr-2" />
-                                                    Add Co-Author
-                                                </Button>
-                                            </DialogTrigger>
+                                <div className="flex gap-2 pt-2">
+                                    <Dialog open={openDialog && selectedPaper === paper.id} onOpenChange={(open) => {
+                                        setOpenDialog(open)
+                                        if (open) setSelectedPaper(paper.id)
+                                        else {
+                                            setSelectedPaper(null)
+                                            setSelectedUser('')
+                                        }
+                                    }}>
+                                        <DialogTrigger asChild>
+                                            <Button variant="outline" size="sm" className="text-xs h-8">
+                                                <UserPlus className="h-3 w-3 mr-1.5" />
+                                                Add Co-Author
+                                            </Button>
+                                        </DialogTrigger>
                                             <DialogContent>
                                                 <DialogHeader>
                                                     <DialogTitle>Add Co-Author</DialogTitle>
@@ -260,39 +298,39 @@ export default function UserSubmissionsPage() {
                                             else handleViewAuthors(paper.id)
                                         }}>
                                             <DialogTrigger asChild>
-                                                <Button variant="outline" size="sm">
-                                                    <Users className="h-4 w-4 mr-2" />
+                                                <Button variant="outline" size="sm" className="text-xs h-8">
+                                                    <Users className="h-3 w-3 mr-1.5" />
                                                     View Authors
                                                 </Button>
                                             </DialogTrigger>
                                             <DialogContent>
                                                 <DialogHeader>
-                                                    <DialogTitle>Paper Authors</DialogTitle>
-                                                    <DialogDescription>
+                                                    <DialogTitle className="text-lg">Paper Authors</DialogTitle>
+                                                    <DialogDescription className="text-sm">
                                                         List of all authors for this paper
                                                     </DialogDescription>
                                                 </DialogHeader>
-                                                <div className="py-4">
+                                                <div className="py-3">
                                                     {!authors[paper.id] ? (
-                                                        <div className="flex justify-center py-8">
-                                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                                        <div className="flex justify-center py-6">
+                                                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
                                                         </div>
                                                     ) : authors[paper.id].length === 0 ? (
-                                                        <p className="text-center text-muted-foreground py-8">
+                                                        <p className="text-center text-sm text-muted-foreground py-6">
                                                             No co-authors added yet
                                                         </p>
                                                     ) : (
                                                         <div className="space-y-2">
                                                             {authors[paper.id].map((author) => (
-                                                                <Card key={author.id}>
-                                                                    <CardContent className="py-3">
-                                                                        <p className="font-medium">{author.fullName}</p>
-                                                                        <p className="text-sm text-muted-foreground">{author.email}</p>
+                                                                <Card key={author.id} className="shadow-sm">
+                                                                    <CardContent className="py-2.5 px-3">
+                                                                        <p className="text-sm font-medium">{author.fullName}</p>
+                                                                        <p className="text-xs text-muted-foreground">{author.email}</p>
                                                                         {author.phoneNumber && (
-                                                                            <p className="text-sm text-muted-foreground">{author.phoneNumber}</p>
+                                                                            <p className="text-xs text-muted-foreground">{author.phoneNumber}</p>
                                                                         )}
                                                                         {author.country && (
-                                                                            <p className="text-sm text-muted-foreground">{author.country}</p>
+                                                                            <p className="text-xs text-muted-foreground">{author.country}</p>
                                                                         )}
                                                                     </CardContent>
                                                                 </Card>
@@ -303,7 +341,6 @@ export default function UserSubmissionsPage() {
                                             </DialogContent>
                                         </Dialog>
                                     </div>
-                                </div>
                             </CardContent>
                         </Card>
                     ))}

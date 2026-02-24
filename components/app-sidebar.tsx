@@ -148,7 +148,7 @@ const data = {
     },
     {
       name: "My Papers",
-      url: "/user-submission",
+      url: "/paper",
       icon: FileText,
     },
     {

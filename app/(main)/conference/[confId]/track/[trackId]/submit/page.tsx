@@ -15,7 +15,23 @@ import { Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { CreatePaperRequest } from '@/types/paper'
-import { createPaper } from '@/app/api/paper.api'
+import { createPaper, assignAuthorToPaper } from '@/app/api/paper.api'
+import { getUserByEmail } from '@/app/api/user.api'
+
+// Utility to decode JWT and get user email
+const getCurrentUserEmail = (): string | null => {
+    if (typeof window === 'undefined') return null
+    const token = localStorage.getItem('accessToken')
+    if (!token) return null
+    
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        return payload.sub || null
+    } catch (error) {
+        console.error('Error decoding token:', error)
+        return null
+    }
+}
 
 export default function SubmitPaperPage() {
     const params = useParams()
@@ -83,7 +99,24 @@ export default function SubmitPaperPage() {
 
         try {
             setSubmitting(true)
-            await createPaper(formData)
+            const createdPaper = await createPaper(formData)
+            
+            // Automatically assign the creator as an author
+            if (createdPaper.id) {
+                const userEmail = getCurrentUserEmail()
+                if (userEmail) {
+                    try {
+                        const user = await getUserByEmail(userEmail)
+                        if (user && user.id) {
+                            await assignAuthorToPaper(createdPaper.id, user.id)
+                        }
+                    } catch (authorErr) {
+                        console.error('Error assigning author:', authorErr)
+                        // Don't fail the submission if author assignment fails
+                    }
+                }
+            }
+            
             toast.success('Paper submitted successfully!')
             router.push(`/conference/${conferenceId}/track`)
         } catch (err: any) {
