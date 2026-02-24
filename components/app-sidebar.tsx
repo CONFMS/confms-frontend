@@ -12,7 +12,8 @@ import {
   Send,
   Settings2,
   SquareTerminal,
-  CirclePlus
+  CirclePlus,
+  FileText
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -144,6 +145,11 @@ const data = {
       name: "Conferences",
       url: "/conference",
       icon: PieChart,
+    },
+    {
+      name: "My Papers",
+      url: "/user-submission",
+      icon: FileText,
     },
     {
       name: "Participants",
