@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getTrack, getTopicsByTrack } from '@/app/api/track.api'
-import { createSubmission } from '@/app/api/submission.api'
 import type { TrackResponse } from '@/types/track'
 import type { TopicResponse } from '@/types/topic'
-import type { CreateSubmissionRequest } from '@/types/submission'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +14,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { CreatePaperRequest } from '@/types/paper'
+import { createPaper, assignAuthorToPaper } from '@/app/api/paper.api'
+import { getUserByEmail } from '@/app/api/user.api'
+
+// Utility to decode JWT and get user email
+const getCurrentUserEmail = (): string | null => {
+    if (typeof window === 'undefined') return null
+    const token = localStorage.getItem('accessToken')
+    if (!token) return null
+    
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        return payload.sub || null
+    } catch (error) {
+        console.error('Error decoding token:', error)
+        return null
+    }
+}
 
 export default function SubmitPaperPage() {
     const params = useParams()
@@ -29,14 +45,18 @@ export default function SubmitPaperPage() {
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const [formData, setFormData] = useState<CreateSubmissionRequest>({
+    const [formData, setFormData] = useState<CreatePaperRequest>({
+        conferenceTrackId: trackId,
         topicId: 0,
         title: '',
         abstractField: '',
         keyword1: '',
         keyword2: '',
         keyword3: '',
-        keyword4: ''
+        keyword4: '',
+        submissionTime: new Date().toISOString(),
+        isPassedPlagiarism: false,
+        status: 'SUBMITTED'
     })
 
     useEffect(() => {
@@ -79,7 +99,24 @@ export default function SubmitPaperPage() {
 
         try {
             setSubmitting(true)
-            await createSubmission(formData)
+            const createdPaper = await createPaper(formData)
+            
+            // Automatically assign the creator as an author
+            if (createdPaper.id) {
+                const userEmail = getCurrentUserEmail()
+                if (userEmail) {
+                    try {
+                        const user = await getUserByEmail(userEmail)
+                        if (user && user.id) {
+                            await assignAuthorToPaper(createdPaper.id, user.id)
+                        }
+                    } catch (authorErr) {
+                        console.error('Error assigning author:', authorErr)
+                        // Don't fail the submission if author assignment fails
+                    }
+                }
+            }
+            
             toast.success('Paper submitted successfully!')
             router.push(`/conference/${conferenceId}/track`)
         } catch (err: any) {
@@ -90,13 +127,13 @@ export default function SubmitPaperPage() {
         }
     }
 
-    const handleChange = (field: keyof CreateSubmissionRequest, value: string | number) => {
+    const handleChange = (field: keyof CreatePaperRequest, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }))
     }
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center justify-center min-h-screen">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         )
@@ -104,7 +141,7 @@ export default function SubmitPaperPage() {
 
     if (error) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+            <div className="flex flex-col items-center justify-center min-h-screen gap-4">
                 <p className="text-destructive text-lg">{error}</p>
                 {error.includes('logged in') ? (
                     <Link href="/auth/login">

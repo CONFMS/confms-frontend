@@ -10,3 +10,8 @@ export const assignRole = async (body: AssignRoleRequest): Promise<AssignRoleRes
     const response = await http.post<AssignRoleResponse>('/conference-user-tracks/assign-role', body)
     return response.data
 }
+
+export const getUserByEmail = async (email: string): Promise<User> => {
+    const response = await http.get<User>(`/users/search?email=${encodeURIComponent(email)}`)
+    return response.data
+}
