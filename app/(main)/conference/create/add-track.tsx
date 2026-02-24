@@ -405,7 +405,7 @@ export function AddTrack({ conferenceId, onSuccess }: AddTrackProps) {
 
             <div className="mt-8 flex items-center justify-end gap-4">
                 <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Adding..." : "Next: Assign Roles →"}
+                    {isSubmitting ? "Adding..." : "Next: Add Topics →"}
                 </Button>
             </div>
         </form>

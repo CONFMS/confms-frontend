@@ -1,6 +1,12 @@
+export interface CreateTopicRequest {
+    trackId: number
+    title: string
+    description: string
+}
+
 export interface TopicResponse {
-    id: number,
-    description: string,
-    title: string,
-    topicId: number
+    id: number
+    trackId: number
+    title: string
+    description: string
 }

@@ -5,7 +5,6 @@ export interface CreateConferenceRequest {
     location: string
     startDate: string
     endDate: string
-    status: string
     websiteUrl: string
 }
 
