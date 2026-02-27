@@ -2,8 +2,8 @@ import http from '@/lib/http'
 import type { User, AssignRoleRequest, AssignRoleResponse } from '@/types/user'
 
 export const getUsers = async (): Promise<User[]> => {
-    const response = await http.get<User[]>('/users')
-    return response.data
+    const response = await http.get<{ content: User[] }>('/users')
+    return response.data.content
 }
 
 export const assignRole = async (body: AssignRoleRequest): Promise<AssignRoleResponse> => {

@@ -17,6 +17,6 @@ export const getConference = async (id: number): Promise<ConferenceResponse> => 
 }
 
 export const getConferences = async (): Promise<ConferenceListResponse[]> => {
-    const response = await http.get<ConferenceListResponse[]>('/conferences')
-    return response.data
+    const response = await http.get<{ content: ConferenceListResponse[] }>('/conferences')
+    return response.data.content
 }
