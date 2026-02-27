@@ -1,9 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { createReviewType } from "@/app/api/review-type.api"
-import toast from "react-hot-toast"
+import type { ReviewTypeData } from "@/types/conference-form"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -22,10 +20,13 @@ import {
     FieldLegend,
     FieldSet,
 } from "@/components/ui/field"
-import { Eye, MessageSquare } from "lucide-react"
+import { ArrowLeft, Eye, Loader2, MessageSquare } from "lucide-react"
 
 interface ReviewTypeProps {
-    conferenceId: number
+    initialData: ReviewTypeData | null
+    onSubmit: (data: ReviewTypeData) => Promise<void>
+    onBack: () => void
+    isSubmitting: boolean
 }
 
 const REVIEW_OPTIONS = [
@@ -34,13 +35,11 @@ const REVIEW_OPTIONS = [
     { value: "OPEN_REVIEW", label: "Open Review", description: "Both authors and reviewers know each other's identity." },
 ]
 
-export function ReviewType({ conferenceId }: ReviewTypeProps) {
-    const router = useRouter()
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export function ReviewType({ initialData, onSubmit, onBack, isSubmitting }: ReviewTypeProps) {
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    const [reviewOption, setReviewOption] = useState("")
-    const [isRebuttal, setIsRebuttal] = useState(false)
+    const [reviewOption, setReviewOption] = useState(initialData?.reviewOption ?? "")
+    const [isRebuttal, setIsRebuttal] = useState(initialData?.isRebuttal ?? false)
 
     const validate = () => {
         const newErrors: Record<string, string> = {}
@@ -52,22 +51,7 @@ export function ReviewType({ conferenceId }: ReviewTypeProps) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!validate()) return
-
-        setIsSubmitting(true)
-        try {
-            await createReviewType({
-                conferenceId,
-                reviewOption,
-                isRebuttal,
-            })
-            toast.success("Review type configured successfully!")
-            router.push("/dashboard")
-        } catch (error) {
-            console.error("Failed to create review type:", error)
-            toast.error("Failed to configure review type. Please try again.")
-        } finally {
-            setIsSubmitting(false)
-        }
+        await onSubmit({ reviewOption, isRebuttal })
     }
 
     const selectedOption = REVIEW_OPTIONS.find((o) => o.value === reviewOption)
@@ -99,6 +83,7 @@ export function ReviewType({ conferenceId }: ReviewTypeProps) {
                                     })
                                 }
                             }}
+                            disabled={isSubmitting}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Select a review type" />
@@ -141,22 +126,27 @@ export function ReviewType({ conferenceId }: ReviewTypeProps) {
                                 onCheckedChange={(checked: boolean) =>
                                     setIsRebuttal(checked)
                                 }
+                                disabled={isSubmitting}
                             />
                         </div>
                     </Field>
                 </FieldGroup>
             </FieldSet>
 
-            <div className="mt-8 flex items-center justify-end gap-4">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/conference")}
-                >
-                    Skip for now
+            <div className="mt-8 flex items-center justify-between gap-4">
+                <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
+                    <ArrowLeft className="mr-2 size-4" />
+                    Back
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Finish Setup"}
+                    {isSubmitting ? (
+                        <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Creating Conference...
+                        </>
+                    ) : (
+                        "Finish Setup"
+                    )}
                 </Button>
             </div>
         </form>

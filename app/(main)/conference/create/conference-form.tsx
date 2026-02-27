@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createConference } from "@/app/api/conference.api"
-import toast from "react-hot-toast"
+import type { ConferenceData } from "@/types/conference-form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -18,23 +17,24 @@ import {
 import { CalendarIcon, Globe, MapPin, Tag, FileText, Type } from "lucide-react"
 
 interface ConferenceFormProps {
-    onSuccess: (conferenceId: number) => void
+    initialData: ConferenceData | null
+    onSubmit: (data: ConferenceData) => void
 }
 
-export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export function ConferenceForm({ initialData, onSubmit }: ConferenceFormProps) {
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    const [formData, setFormData] = useState({
-        name: "",
-        acronym: "",
-        description: "",
-        location: "",
-        startDate: "",
-        endDate: "",
-
-        websiteUrl: "",
-    })
+    const [formData, setFormData] = useState<ConferenceData>(
+        initialData ?? {
+            name: "",
+            acronym: "",
+            description: "",
+            location: "",
+            startDate: "",
+            endDate: "",
+            websiteUrl: "",
+        }
+    )
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -49,8 +49,6 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
             })
         }
     }
-
-
 
     const validate = () => {
         const newErrors: Record<string, string> = {}
@@ -79,26 +77,10 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
         return Object.keys(newErrors).length === 0
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!validate()) return
-
-        setIsSubmitting(true)
-        try {
-            const payload = {
-                ...formData,
-                startDate: new Date(formData.startDate).toISOString(),
-                endDate: new Date(formData.endDate).toISOString(),
-            }
-            const result = await createConference(payload)
-            toast.success("Conference created successfully!")
-            onSuccess(result.id)
-        } catch (error) {
-            console.error("Failed to create conference:", error)
-            toast.error("Failed to create conference. Please try again.")
-        } finally {
-            setIsSubmitting(false)
-        }
+        onSubmit(formData)
     }
 
     return (
@@ -242,8 +224,6 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
                         </Field>
                     </div>
 
-
-
                     {/* Website URL */}
                     <Field data-invalid={!!errors.websiteUrl || undefined}>
                         <FieldLabel htmlFor="websiteUrl">
@@ -269,8 +249,8 @@ export function ConferenceForm({ onSuccess }: ConferenceFormProps) {
             </FieldSet>
 
             <div className="mt-8 flex items-center justify-end gap-4">
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Creating..." : "Next: Add Tracks →"}
+                <Button type="submit">
+                    Next: Add Tracks →
                 </Button>
             </div>
         </form>

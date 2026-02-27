@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { getUsers, assignRole } from "@/app/api/user.api"
+import { getUsers } from "@/app/api/user.api"
 import type { User } from "@/types/user"
+import type { RoleAssignmentData } from "@/types/conference-form"
 import toast from "react-hot-toast"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,18 +22,12 @@ import {
     FieldLegend,
     FieldSet,
 } from "@/components/ui/field"
-import { Plus, Shield, Trash2, UserIcon } from "lucide-react"
+import { ArrowLeft, Plus, Shield, Trash2, UserIcon } from "lucide-react"
 
 interface AssignRoleProps {
-    conferenceId: number
-    trackId: number
-    onSuccess: () => void
-}
-
-interface RoleAssignment {
-    id: number
-    userId: string
-    role: string
+    initialAssignments: RoleAssignmentData[]
+    onSubmit: (assignments: RoleAssignmentData[]) => void
+    onBack: () => void
 }
 
 const ROLES = [
@@ -44,15 +39,15 @@ const ROLES = [
 
 let nextId = 1
 
-export function AssignRole({ conferenceId, trackId, onSuccess }: AssignRoleProps) {
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export function AssignRole({ initialAssignments, onSubmit, onBack }: AssignRoleProps) {
     const [isLoadingUsers, setIsLoadingUsers] = useState(true)
     const [users, setUsers] = useState<User[]>([])
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    const [assignments, setAssignments] = useState<RoleAssignment[]>([
-        { id: nextId++, userId: "", role: "" },
-    ])
+    const [assignments, setAssignments] = useState<RoleAssignmentData[]>(() => {
+        if (initialAssignments.length > 0) return initialAssignments
+        return [{ id: nextId++, userId: "", role: "" }]
+    })
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -76,7 +71,6 @@ export function AssignRole({ conferenceId, trackId, onSuccess }: AssignRoleProps
     const removeAssignment = (id: number) => {
         if (assignments.length <= 1) return
         setAssignments((prev) => prev.filter((a) => a.id !== id))
-        // Clear related errors
         setErrors((prev) => {
             const next = { ...prev }
             delete next[`userId_${id}`]
@@ -113,33 +107,10 @@ export function AssignRole({ conferenceId, trackId, onSuccess }: AssignRoleProps
         return Object.keys(newErrors).length === 0
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!validate()) return
-
-        setIsSubmitting(true)
-        try {
-            const promises = assignments.map((a) =>
-                assignRole({
-                    userId: Number(a.userId),
-                    conferenceId,
-                    trackId,
-                    assignedRole: a.role,
-                })
-            )
-            await Promise.all(promises)
-            toast.success(
-                assignments.length === 1
-                    ? "Role assigned successfully!"
-                    : `${assignments.length} roles assigned successfully!`
-            )
-            onSuccess()
-        } catch (error) {
-            console.error("Failed to assign roles:", error)
-            toast.error("Failed to assign roles. Please try again.")
-        } finally {
-            setIsSubmitting(false)
-        }
+        onSubmit(assignments)
     }
 
     return (
@@ -283,11 +254,13 @@ export function AssignRole({ conferenceId, trackId, onSuccess }: AssignRoleProps
                 </Button>
             </FieldSet>
 
-            <div className="mt-8 flex items-center justify-end gap-4">
-                <Button type="submit" disabled={isSubmitting || isLoadingUsers}>
-                    {isSubmitting
-                        ? "Assigning..."
-                        : `Next: Templates →`}
+            <div className="mt-8 flex items-center justify-between gap-4">
+                <Button type="button" variant="outline" onClick={onBack}>
+                    <ArrowLeft className="mr-2 size-4" />
+                    Back
+                </Button>
+                <Button type="submit" disabled={isLoadingUsers}>
+                    Next: Templates →
                 </Button>
             </div>
         </form>

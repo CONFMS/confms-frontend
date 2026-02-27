@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createTopic } from "@/app/api/topic.api"
-import toast from "react-hot-toast"
+import type { TopicData } from "@/types/conference-form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -15,29 +14,24 @@ import {
     FieldLegend,
     FieldSet,
 } from "@/components/ui/field"
-import { FileText, Plus, Trash2, Type } from "lucide-react"
+import { ArrowLeft, FileText, Plus, Trash2, Type } from "lucide-react"
 
 interface AddTopicProps {
-    trackId: number
-    onSuccess: () => void
-    onAddAnotherTrack: () => void
-}
-
-interface TopicEntry {
-    id: number
-    title: string
-    description: string
+    initialTopics: TopicData[]
+    onSubmit: (topics: TopicData[]) => void
+    onAddAnotherTrack: (topics: TopicData[]) => void
+    onBack: () => void
 }
 
 let nextId = 1
 
-export function AddTopic({ trackId, onSuccess, onAddAnotherTrack }: AddTopicProps) {
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export function AddTopic({ initialTopics, onSubmit, onAddAnotherTrack, onBack }: AddTopicProps) {
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    const [topics, setTopics] = useState<TopicEntry[]>([
-        { id: nextId++, title: "", description: "" },
-    ])
+    const [topics, setTopics] = useState<TopicData[]>(() => {
+        if (initialTopics.length > 0) return initialTopics
+        return [{ id: nextId++, title: "", description: "" }]
+    })
 
     const addTopic = () => {
         setTopics((prev) => [...prev, { id: nextId++, title: "", description: "" }])
@@ -79,35 +73,14 @@ export function AddTopic({ trackId, onSuccess, onAddAnotherTrack }: AddTopicProp
         return Object.keys(newErrors).length === 0
     }
 
-    const handleSubmit = async (e: React.FormEvent, addAnother: boolean) => {
+    const handleSubmit = (e: React.FormEvent, addAnother: boolean) => {
         e.preventDefault()
         if (!validate()) return
 
-        setIsSubmitting(true)
-        try {
-            const promises = topics.map((t) =>
-                createTopic({
-                    trackId,
-                    title: t.title,
-                    description: t.description,
-                })
-            )
-            await Promise.all(promises)
-            toast.success(
-                topics.length === 1
-                    ? "Topic created successfully!"
-                    : `${topics.length} topics created successfully!`
-            )
-            if (addAnother) {
-                onAddAnotherTrack()
-            } else {
-                onSuccess()
-            }
-        } catch (error) {
-            console.error("Failed to create topics:", error)
-            toast.error("Failed to create topics. Please try again.")
-        } finally {
-            setIsSubmitting(false)
+        if (addAnother) {
+            onAddAnotherTrack(topics)
+        } else {
+            onSubmit(topics)
         }
     }
 
@@ -210,18 +183,23 @@ export function AddTopic({ trackId, onSuccess, onAddAnotherTrack }: AddTopicProp
                 </Button>
             </FieldSet>
 
-            <div className="mt-8 flex items-center justify-end gap-4">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={(e) => handleSubmit(e, true)}
-                    disabled={isSubmitting}
-                >
-                    Save & Add Another Track
+            <div className="mt-8 flex items-center justify-between gap-4">
+                <Button type="button" variant="outline" onClick={onBack}>
+                    <ArrowLeft className="mr-2 size-4" />
+                    Back
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Next: Assign Roles →"}
-                </Button>
+                <div className="flex gap-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={(e) => handleSubmit(e, true)}
+                    >
+                        Save & Add Another Track
+                    </Button>
+                    <Button type="submit">
+                        Next: Assign Roles →
+                    </Button>
+                </div>
             </div>
         </form>
     )

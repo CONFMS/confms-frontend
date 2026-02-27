@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createTrack } from "@/app/api/conference.api"
-import toast from "react-hot-toast"
+import type { TrackData, DefaultTrackDates } from "@/types/conference-form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -15,31 +14,34 @@ import {
     FieldLegend,
     FieldSet,
 } from "@/components/ui/field"
-import { CalendarIcon, FileText, Hash, Type } from "lucide-react"
+import { ArrowLeft, CalendarIcon, FileText, Hash, Type } from "lucide-react"
 
 interface AddTrackProps {
-    conferenceId: number
-    onSuccess: (trackId: number) => void
+    initialData?: TrackData
+    defaultDates: DefaultTrackDates | null
+    onSubmit: (data: TrackData) => void
+    onBack: () => void
 }
 
-export function AddTrack({ conferenceId, onSuccess }: AddTrackProps) {
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export function AddTrack({ initialData, defaultDates, onSubmit, onBack }: AddTrackProps) {
     const [errors, setErrors] = useState<Record<string, string>>({})
-
-    const [formData, setFormData] = useState({
-        name: "",
-        description: "",
-        submissionStart: "",
-        submissionEnd: "",
-        registrationStart: "",
-        registrationEnd: "",
-        cameraReadyStart: "",
-        cameraReadyEnd: "",
-        biddingStart: "",
-        biddingEnd: "",
-        reviewStart: "",
-        reviewEnd: "",
-        maxSubmissions: "",
+    const [formData, setFormData] = useState<TrackData>(() => {
+        if (initialData) return initialData
+        return {
+            name: "",
+            description: "",
+            submissionStart: defaultDates?.submissionStart ?? "",
+            submissionEnd: defaultDates?.submissionEnd ?? "",
+            registrationStart: defaultDates?.registrationStart ?? "",
+            registrationEnd: defaultDates?.registrationEnd ?? "",
+            cameraReadyStart: defaultDates?.cameraReadyStart ?? "",
+            cameraReadyEnd: defaultDates?.cameraReadyEnd ?? "",
+            biddingStart: defaultDates?.biddingStart ?? "",
+            biddingEnd: defaultDates?.biddingEnd ?? "",
+            reviewStart: defaultDates?.reviewStart ?? "",
+            reviewEnd: defaultDates?.reviewEnd ?? "",
+            maxSubmissions: "",
+        }
     })
 
     const handleChange = (
@@ -75,37 +77,10 @@ export function AddTrack({ conferenceId, onSuccess }: AddTrackProps) {
         return Object.keys(newErrors).length === 0
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!validate()) return
-
-        setIsSubmitting(true)
-        try {
-            const payload = {
-                name: formData.name,
-                description: formData.description,
-                conferenceId,
-                submissionStart: new Date(formData.submissionStart).toISOString(),
-                submissionEnd: new Date(formData.submissionEnd).toISOString(),
-                registrationStart: new Date(formData.registrationStart).toISOString(),
-                registrationEnd: new Date(formData.registrationEnd).toISOString(),
-                cameraReadyStart: new Date(formData.cameraReadyStart).toISOString(),
-                cameraReadyEnd: new Date(formData.cameraReadyEnd).toISOString(),
-                biddingStart: new Date(formData.biddingStart).toISOString(),
-                biddingEnd: new Date(formData.biddingEnd).toISOString(),
-                reviewStart: new Date(formData.reviewStart).toISOString(),
-                reviewEnd: new Date(formData.reviewEnd).toISOString(),
-                maxSubmissions: Number(formData.maxSubmissions),
-            }
-            const result = await createTrack(payload)
-            toast.success("Track added successfully!")
-            onSuccess(result.id)
-        } catch (error) {
-            console.error("Failed to create track:", error)
-            toast.error("Failed to add track. Please try again.")
-        } finally {
-            setIsSubmitting(false)
-        }
+        onSubmit(formData)
     }
 
     return (
@@ -226,96 +201,6 @@ export function AddTrack({ conferenceId, onSuccess }: AddTrackProps) {
             <div className="my-8 border-t" />
 
             <FieldSet>
-                <FieldLegend>Registration Period</FieldLegend>
-                <FieldDescription>
-                    Set the start and end dates for participant registration.
-                </FieldDescription>
-                <FieldGroup>
-                    <div className="grid gap-6 sm:grid-cols-2">
-                        <Field data-invalid={!!errors.registrationStart || undefined}>
-                            <FieldLabel htmlFor="registrationStart">
-                                <CalendarIcon className="size-4" />
-                                Registration Start
-                            </FieldLabel>
-                            <Input
-                                id="registrationStart"
-                                type="datetime-local"
-                                value={formData.registrationStart}
-                                onChange={handleChange}
-                                aria-invalid={!!errors.registrationStart}
-                            />
-                            {errors.registrationStart && (
-                                <FieldError>{errors.registrationStart}</FieldError>
-                            )}
-                        </Field>
-                        <Field data-invalid={!!errors.registrationEnd || undefined}>
-                            <FieldLabel htmlFor="registrationEnd">
-                                <CalendarIcon className="size-4" />
-                                Registration End
-                            </FieldLabel>
-                            <Input
-                                id="registrationEnd"
-                                type="datetime-local"
-                                value={formData.registrationEnd}
-                                onChange={handleChange}
-                                aria-invalid={!!errors.registrationEnd}
-                            />
-                            {errors.registrationEnd && (
-                                <FieldError>{errors.registrationEnd}</FieldError>
-                            )}
-                        </Field>
-                    </div>
-                </FieldGroup>
-            </FieldSet>
-
-            <div className="my-8 border-t" />
-
-            <FieldSet>
-                <FieldLegend>Camera-Ready Period</FieldLegend>
-                <FieldDescription>
-                    Set the start and end dates for camera-ready submission.
-                </FieldDescription>
-                <FieldGroup>
-                    <div className="grid gap-6 sm:grid-cols-2">
-                        <Field data-invalid={!!errors.cameraReadyStart || undefined}>
-                            <FieldLabel htmlFor="cameraReadyStart">
-                                <CalendarIcon className="size-4" />
-                                Camera-Ready Start
-                            </FieldLabel>
-                            <Input
-                                id="cameraReadyStart"
-                                type="datetime-local"
-                                value={formData.cameraReadyStart}
-                                onChange={handleChange}
-                                aria-invalid={!!errors.cameraReadyStart}
-                            />
-                            {errors.cameraReadyStart && (
-                                <FieldError>{errors.cameraReadyStart}</FieldError>
-                            )}
-                        </Field>
-                        <Field data-invalid={!!errors.cameraReadyEnd || undefined}>
-                            <FieldLabel htmlFor="cameraReadyEnd">
-                                <CalendarIcon className="size-4" />
-                                Camera-Ready End
-                            </FieldLabel>
-                            <Input
-                                id="cameraReadyEnd"
-                                type="datetime-local"
-                                value={formData.cameraReadyEnd}
-                                onChange={handleChange}
-                                aria-invalid={!!errors.cameraReadyEnd}
-                            />
-                            {errors.cameraReadyEnd && (
-                                <FieldError>{errors.cameraReadyEnd}</FieldError>
-                            )}
-                        </Field>
-                    </div>
-                </FieldGroup>
-            </FieldSet>
-
-            <div className="my-8 border-t" />
-
-            <FieldSet>
                 <FieldLegend>Bidding Period</FieldLegend>
                 <FieldDescription>
                     Set the start and end dates for reviewer bidding.
@@ -403,9 +288,103 @@ export function AddTrack({ conferenceId, onSuccess }: AddTrackProps) {
                 </FieldGroup>
             </FieldSet>
 
-            <div className="mt-8 flex items-center justify-end gap-4">
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Adding..." : "Next: Add Topics →"}
+            <div className="my-8 border-t" />
+
+            <FieldSet>
+                <FieldLegend>Camera-Ready Period</FieldLegend>
+                <FieldDescription>
+                    Set the start and end dates for camera-ready submission.
+                </FieldDescription>
+                <FieldGroup>
+                    <div className="grid gap-6 sm:grid-cols-2">
+                        <Field data-invalid={!!errors.cameraReadyStart || undefined}>
+                            <FieldLabel htmlFor="cameraReadyStart">
+                                <CalendarIcon className="size-4" />
+                                Camera-Ready Start
+                            </FieldLabel>
+                            <Input
+                                id="cameraReadyStart"
+                                type="datetime-local"
+                                value={formData.cameraReadyStart}
+                                onChange={handleChange}
+                                aria-invalid={!!errors.cameraReadyStart}
+                            />
+                            {errors.cameraReadyStart && (
+                                <FieldError>{errors.cameraReadyStart}</FieldError>
+                            )}
+                        </Field>
+                        <Field data-invalid={!!errors.cameraReadyEnd || undefined}>
+                            <FieldLabel htmlFor="cameraReadyEnd">
+                                <CalendarIcon className="size-4" />
+                                Camera-Ready End
+                            </FieldLabel>
+                            <Input
+                                id="cameraReadyEnd"
+                                type="datetime-local"
+                                value={formData.cameraReadyEnd}
+                                onChange={handleChange}
+                                aria-invalid={!!errors.cameraReadyEnd}
+                            />
+                            {errors.cameraReadyEnd && (
+                                <FieldError>{errors.cameraReadyEnd}</FieldError>
+                            )}
+                        </Field>
+                    </div>
+                </FieldGroup>
+            </FieldSet>
+
+            <div className="my-8 border-t" />
+
+            <FieldSet>
+                <FieldLegend>Registration Period</FieldLegend>
+                <FieldDescription>
+                    Set the start and end dates for participant registration.
+                </FieldDescription>
+                <FieldGroup>
+                    <div className="grid gap-6 sm:grid-cols-2">
+                        <Field data-invalid={!!errors.registrationStart || undefined}>
+                            <FieldLabel htmlFor="registrationStart">
+                                <CalendarIcon className="size-4" />
+                                Registration Start
+                            </FieldLabel>
+                            <Input
+                                id="registrationStart"
+                                type="datetime-local"
+                                value={formData.registrationStart}
+                                onChange={handleChange}
+                                aria-invalid={!!errors.registrationStart}
+                            />
+                            {errors.registrationStart && (
+                                <FieldError>{errors.registrationStart}</FieldError>
+                            )}
+                        </Field>
+                        <Field data-invalid={!!errors.registrationEnd || undefined}>
+                            <FieldLabel htmlFor="registrationEnd">
+                                <CalendarIcon className="size-4" />
+                                Registration End
+                            </FieldLabel>
+                            <Input
+                                id="registrationEnd"
+                                type="datetime-local"
+                                value={formData.registrationEnd}
+                                onChange={handleChange}
+                                aria-invalid={!!errors.registrationEnd}
+                            />
+                            {errors.registrationEnd && (
+                                <FieldError>{errors.registrationEnd}</FieldError>
+                            )}
+                        </Field>
+                    </div>
+                </FieldGroup>
+            </FieldSet>
+
+            <div className="mt-8 flex items-center justify-between gap-4">
+                <Button type="button" variant="outline" onClick={onBack}>
+                    <ArrowLeft className="mr-2 size-4" />
+                    Back
+                </Button>
+                <Button type="submit">
+                    Next: Add Topics →
                 </Button>
             </div>
         </form>

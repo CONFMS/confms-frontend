@@ -1,12 +1,29 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { ConferenceForm } from "./conference-form"
 import { AddTrack } from "./add-track"
 import { AddTopic } from "./add-topic"
 import { AssignRole } from "./assign-role"
 import { ConferenceTemplate } from "./conference-template"
 import { ReviewType } from "./review-type"
+import { createConference, createTrack } from "@/app/api/conference.api"
+import { createTopic } from "@/app/api/topic.api"
+import { assignRole } from "@/app/api/user.api"
+import { createTemplate } from "@/app/api/template.api"
+import { createReviewType } from "@/app/api/review-type.api"
+import toast from "react-hot-toast"
+import type {
+    ConferenceData,
+    TrackData,
+    TopicData,
+    TrackWithTopics,
+    RoleAssignmentData,
+    TemplateData,
+    ReviewTypeData,
+    DefaultTrackDates,
+} from "@/types/conference-form"
 
 type Step = "conference" | "track" | "topic" | "assign-role" | "template" | "review-type"
 
@@ -22,40 +39,229 @@ const STEP_LABELS: Record<Step, string> = {
 const STEPS: Step[] = ["conference", "track", "topic", "assign-role", "template", "review-type"]
 
 export default function CreateConferencePage() {
+    const router = useRouter()
     const [step, setStep] = useState<Step>("conference")
-    const [conferenceId, setConferenceId] = useState<number | null>(null)
-    const [trackId, setTrackId] = useState<number | null>(null)
-    const [trackIds, setTrackIds] = useState<number[]>([])
 
-    const handleConferenceSuccess = (id: number) => {
-        setConferenceId(id)
+    // --- All collected data ---
+    const [conferenceData, setConferenceData] = useState<ConferenceData | null>(null)
+    const [tracksWithTopics, setTracksWithTopics] = useState<TrackWithTopics[]>([])
+    const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(-1)
+    const [defaultTrackDates, setDefaultTrackDates] = useState<DefaultTrackDates | null>(null)
+    const [roleAssignments, setRoleAssignments] = useState<RoleAssignmentData[]>([])
+    const [templates, setTemplates] = useState<TemplateData[]>([])
+    const [reviewTypeData, setReviewTypeData] = useState<ReviewTypeData | null>(null)
+
+    const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // --- Step Navigation ---
+    const goBack = () => {
+        const currentIndex = STEPS.indexOf(step)
+        if (currentIndex > 0) {
+            // Special case: if going back from topic, go to track (same track)
+            // If going back from track and there are previous tracks with topics, go to the last topic step
+            setStep(STEPS[currentIndex - 1])
+        }
+    }
+
+    // --- Step Handlers ---
+
+    const handleConferenceSubmit = (data: ConferenceData) => {
+        setConferenceData(data)
         setStep("track")
     }
 
-    const handleTrackSuccess = (id: number) => {
-        setTrackId(id)
-        setTrackIds((prev) => [...prev, id])
+    const handleTrackSubmit = (data: TrackData) => {
+        // Save default dates from the first track, or update with latest
+        const dates: DefaultTrackDates = {
+            submissionStart: data.submissionStart,
+            submissionEnd: data.submissionEnd,
+            registrationStart: data.registrationStart,
+            registrationEnd: data.registrationEnd,
+            cameraReadyStart: data.cameraReadyStart,
+            cameraReadyEnd: data.cameraReadyEnd,
+            biddingStart: data.biddingStart,
+            biddingEnd: data.biddingEnd,
+            reviewStart: data.reviewStart,
+            reviewEnd: data.reviewEnd,
+        }
+        setDefaultTrackDates(dates)
+
+        if (currentTrackIndex >= 0 && currentTrackIndex < tracksWithTopics.length) {
+            // Editing existing track
+            setTracksWithTopics((prev) => {
+                const updated = [...prev]
+                updated[currentTrackIndex] = { ...updated[currentTrackIndex], track: data }
+                return updated
+            })
+        } else {
+            // New track
+            const newIndex = tracksWithTopics.length
+            setTracksWithTopics((prev) => [...prev, { track: data, topics: [] }])
+            setCurrentTrackIndex(newIndex)
+        }
+
         setStep("topic")
     }
 
-    const handleTopicSuccess = () => {
+    const handleTopicSubmit = (topics: TopicData[]) => {
+        // Save topics for the current track
+        setTracksWithTopics((prev) => {
+            const updated = [...prev]
+            if (currentTrackIndex >= 0 && currentTrackIndex < updated.length) {
+                updated[currentTrackIndex] = { ...updated[currentTrackIndex], topics }
+            }
+            return updated
+        })
         setStep("assign-role")
     }
 
-    const handleAddAnotherTrack = () => {
-        setTrackId(null)
+    const handleAddAnotherTrack = (topics: TopicData[]) => {
+        // Save current topics first
+        setTracksWithTopics((prev) => {
+            const updated = [...prev]
+            if (currentTrackIndex >= 0 && currentTrackIndex < updated.length) {
+                updated[currentTrackIndex] = { ...updated[currentTrackIndex], topics }
+            }
+            return updated
+        })
+        // Start a new track (will use defaultTrackDates)
+        setCurrentTrackIndex(-1)
         setStep("track")
     }
 
-    const handleAssignRoleSuccess = () => {
+    const handleRoleAssignmentsSubmit = (assignments: RoleAssignmentData[]) => {
+        setRoleAssignments(assignments)
         setStep("template")
     }
 
-    const handleTemplateSuccess = () => {
+    const handleTemplatesSubmit = (templateData: TemplateData[]) => {
+        setTemplates(templateData)
         setStep("review-type")
     }
 
+    const handleFinalSubmit = async (data: ReviewTypeData) => {
+        setReviewTypeData(data)
+        setIsSubmitting(true)
+
+        try {
+            // 1. Create conference
+            const conferenceResult = await createConference({
+                ...conferenceData!,
+                startDate: new Date(conferenceData!.startDate).toISOString(),
+                endDate: new Date(conferenceData!.endDate).toISOString(),
+            })
+            const conferenceId = conferenceResult.id
+            toast.success("Conference created!")
+
+            // 2. Create tracks and topics
+            for (const { track, topics } of tracksWithTopics) {
+                const trackResult = await createTrack({
+                    name: track.name,
+                    description: track.description,
+                    conferenceId,
+                    submissionStart: new Date(track.submissionStart).toISOString(),
+                    submissionEnd: new Date(track.submissionEnd).toISOString(),
+                    registrationStart: new Date(track.registrationStart).toISOString(),
+                    registrationEnd: new Date(track.registrationEnd).toISOString(),
+                    cameraReadyStart: new Date(track.cameraReadyStart).toISOString(),
+                    cameraReadyEnd: new Date(track.cameraReadyEnd).toISOString(),
+                    biddingStart: new Date(track.biddingStart).toISOString(),
+                    biddingEnd: new Date(track.biddingEnd).toISOString(),
+                    reviewStart: new Date(track.reviewStart).toISOString(),
+                    reviewEnd: new Date(track.reviewEnd).toISOString(),
+                    maxSubmissions: Number(track.maxSubmissions),
+                })
+                toast.success(`Track "${track.name}" created!`)
+
+                // Create topics for this track
+                if (topics.length > 0) {
+                    await Promise.all(
+                        topics.map((t) =>
+                            createTopic({
+                                trackId: trackResult.id,
+                                title: t.title,
+                                description: t.description,
+                            })
+                        )
+                    )
+                    toast.success(`${topics.length} topic(s) added to "${track.name}"`)
+                }
+
+                // 3. Assign roles for each track
+                const trackRoles = roleAssignments.filter((a) => a.userId && a.role)
+                if (trackRoles.length > 0) {
+                    await Promise.all(
+                        trackRoles.map((a) =>
+                            assignRole({
+                                userId: Number(a.userId),
+                                conferenceId,
+                                trackId: trackResult.id,
+                                assignedRole: a.role,
+                            })
+                        )
+                    )
+                }
+            }
+            if (roleAssignments.filter((a) => a.userId && a.role).length > 0) {
+                toast.success("Roles assigned!")
+            }
+
+            // 4. Create templates
+            if (templates.length > 0) {
+                const validTemplates = templates.filter((t) => t.templateType && t.subject && t.body)
+                if (validTemplates.length > 0) {
+                    await Promise.all(
+                        validTemplates.map((t) =>
+                            createTemplate({
+                                conferenceId,
+                                templateType: t.templateType,
+                                subject: t.subject,
+                                body: t.body,
+                                isDefault: t.isDefault,
+                            })
+                        )
+                    )
+                    toast.success("Templates created!")
+                }
+            }
+
+            // 5. Create review type
+            if (data.reviewOption) {
+                await createReviewType({
+                    conferenceId,
+                    reviewOption: data.reviewOption,
+                    isRebuttal: data.isRebuttal,
+                })
+                toast.success("Review type configured!")
+            }
+
+            toast.success("🎉 Conference setup complete!")
+            router.push("/conference")
+        } catch (error) {
+            console.error("Failed to create conference:", error)
+            toast.error("Something went wrong. Please try again.")
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
     const currentStepIndex = STEPS.indexOf(step)
+
+    // Get current track data for editing
+    const getCurrentTrackData = (): TrackData | undefined => {
+        if (currentTrackIndex >= 0 && currentTrackIndex < tracksWithTopics.length) {
+            return tracksWithTopics[currentTrackIndex].track
+        }
+        return undefined
+    }
+
+    // Get current topics for editing
+    const getCurrentTopics = (): TopicData[] => {
+        if (currentTrackIndex >= 0 && currentTrackIndex < tracksWithTopics.length) {
+            return tracksWithTopics[currentTrackIndex].topics
+        }
+        return []
+    }
 
     return (
         <div className="mx-auto w-full max-w-2xl py-6">
@@ -77,9 +283,9 @@ export default function CreateConferencePage() {
                         </h1>
                         <p className="text-muted-foreground mt-2">
                             Step 2: Add a track to your conference.
-                            {trackIds.length > 0 && (
+                            {tracksWithTopics.length > 0 && (
                                 <span className="ml-1 font-medium">
-                                    ({trackIds.length} track{trackIds.length > 1 ? "s" : ""} added so far)
+                                    ({tracksWithTopics.length} track{tracksWithTopics.length > 1 ? "s" : ""} added so far)
                                 </span>
                             )}
                         </p>
@@ -101,7 +307,7 @@ export default function CreateConferencePage() {
                             Assign Roles
                         </h1>
                         <p className="text-muted-foreground mt-2">
-                            Step 4: Assign roles to users for this conference track.
+                            Step 4: Assign roles to users for this conference.
                         </p>
                     </>
                 )}
@@ -144,41 +350,53 @@ export default function CreateConferencePage() {
             </div>
 
             {step === "conference" && (
-                <ConferenceForm onSuccess={handleConferenceSuccess} />
+                <ConferenceForm
+                    initialData={conferenceData}
+                    onSubmit={handleConferenceSubmit}
+                />
             )}
 
-            {step === "track" && conferenceId && (
+            {step === "track" && (
                 <AddTrack
-                    conferenceId={conferenceId}
-                    onSuccess={handleTrackSuccess}
+                    initialData={getCurrentTrackData()}
+                    defaultDates={defaultTrackDates}
+                    onSubmit={handleTrackSubmit}
+                    onBack={goBack}
                 />
             )}
 
-            {step === "topic" && trackId && (
+            {step === "topic" && (
                 <AddTopic
-                    trackId={trackId}
-                    onSuccess={handleTopicSuccess}
+                    initialTopics={getCurrentTopics()}
+                    onSubmit={handleTopicSubmit}
                     onAddAnotherTrack={handleAddAnotherTrack}
+                    onBack={goBack}
                 />
             )}
 
-            {step === "assign-role" && conferenceId && trackIds.length > 0 && (
+            {step === "assign-role" && (
                 <AssignRole
-                    conferenceId={conferenceId}
-                    trackId={trackIds[trackIds.length - 1]}
-                    onSuccess={handleAssignRoleSuccess}
+                    initialAssignments={roleAssignments}
+                    onSubmit={handleRoleAssignmentsSubmit}
+                    onBack={goBack}
                 />
             )}
 
-            {step === "template" && conferenceId && (
+            {step === "template" && (
                 <ConferenceTemplate
-                    conferenceId={conferenceId}
-                    onSuccess={handleTemplateSuccess}
+                    initialTemplates={templates}
+                    onSubmit={handleTemplatesSubmit}
+                    onBack={goBack}
                 />
             )}
 
-            {step === "review-type" && conferenceId && (
-                <ReviewType conferenceId={conferenceId} />
+            {step === "review-type" && (
+                <ReviewType
+                    initialData={reviewTypeData}
+                    onSubmit={handleFinalSubmit}
+                    onBack={goBack}
+                    isSubmitting={isSubmitting}
+                />
             )}
         </div>
     )

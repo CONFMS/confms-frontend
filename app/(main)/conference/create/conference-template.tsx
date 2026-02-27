@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createTemplate } from "@/app/api/template.api"
-import toast from "react-hot-toast"
+import type { TemplateData } from "@/types/conference-form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -16,30 +15,23 @@ import {
     FieldLegend,
     FieldSet,
 } from "@/components/ui/field"
-import { FileText, Mail, Plus, Trash2, Type } from "lucide-react"
+import { ArrowLeft, FileText, Mail, Plus, Trash2, Type } from "lucide-react"
 
 interface ConferenceTemplateProps {
-    conferenceId: number
-    onSuccess: () => void
-}
-
-interface TemplateEntry {
-    id: number
-    templateType: string
-    subject: string
-    body: string
-    isDefault: boolean
+    initialTemplates: TemplateData[]
+    onSubmit: (templates: TemplateData[]) => void
+    onBack: () => void
 }
 
 let nextId = 1
 
-export function ConferenceTemplate({ conferenceId, onSuccess }: ConferenceTemplateProps) {
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export function ConferenceTemplate({ initialTemplates, onSubmit, onBack }: ConferenceTemplateProps) {
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    const [templates, setTemplates] = useState<TemplateEntry[]>([
-        { id: nextId++, templateType: "", subject: "", body: "", isDefault: false },
-    ])
+    const [templates, setTemplates] = useState<TemplateData[]>(() => {
+        if (initialTemplates.length > 0) return initialTemplates
+        return [{ id: nextId++, templateType: "", subject: "", body: "", isDefault: false }]
+    })
 
     const addTemplate = () => {
         setTemplates((prev) => [
@@ -62,13 +54,13 @@ export function ConferenceTemplate({ conferenceId, onSuccess }: ConferenceTempla
 
     const updateTemplate = (
         id: number,
-        field: keyof Omit<TemplateEntry, "id">,
+        field: keyof Omit<TemplateData, "id">,
         value: string | boolean
     ) => {
         setTemplates((prev) =>
             prev.map((t) => (t.id === id ? { ...t, [field]: value } : t))
         )
-        const errorKey = `${field}_${id}`
+        const errorKey = `${String(field)}_${id}`
         if (errors[errorKey]) {
             setErrors((prev) => {
                 const next = { ...prev }
@@ -92,34 +84,10 @@ export function ConferenceTemplate({ conferenceId, onSuccess }: ConferenceTempla
         return Object.keys(newErrors).length === 0
     }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!validate()) return
-
-        setIsSubmitting(true)
-        try {
-            const promises = templates.map((t) =>
-                createTemplate({
-                    conferenceId,
-                    templateType: t.templateType,
-                    subject: t.subject,
-                    body: t.body,
-                    isDefault: t.isDefault,
-                })
-            )
-            await Promise.all(promises)
-            toast.success(
-                templates.length === 1
-                    ? "Template created successfully!"
-                    : `${templates.length} templates created successfully!`
-            )
-            onSuccess()
-        } catch (error) {
-            console.error("Failed to create templates:", error)
-            toast.error("Failed to create templates. Please try again.")
-        } finally {
-            setIsSubmitting(false)
-        }
+        onSubmit(templates)
     }
 
     return (
@@ -302,11 +270,13 @@ export function ConferenceTemplate({ conferenceId, onSuccess }: ConferenceTempla
                 </Button>
             </FieldSet>
 
-            <div className="mt-8 flex items-center justify-end gap-4">
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting
-                        ? "Saving..."
-                        : `Next: Review Type →`}
+            <div className="mt-8 flex items-center justify-between gap-4">
+                <Button type="button" variant="outline" onClick={onBack}>
+                    <ArrowLeft className="mr-2 size-4" />
+                    Back
+                </Button>
+                <Button type="submit">
+                    Next: Review Type →
                 </Button>
             </div>
         </form>
